@@ -11,93 +11,68 @@ library(data.tree)
 # Day 7, Part 1                                                                                      #
 ######################################################################################################
 
-# Pull the input in as a vector of individual characters
 input <- read_lines("input_day7.txt")
 
-# I'm just going to solve this with a loop first and then maybe come up with something more elegant
-# Storing directory stats as we go
+# I'm just going to loop through the input lines, keeping track of directory sizes as I go
+# I'll need to track each unique directory path and the total size of files it contains
 
 # Initialize a table to keep track of directory stats
 directory_stats <- data.frame(name = "/",
-                              depth = 0,
-                              parent = NA,
-                              direct_file_names = "",
-                              direct_file_sizes = 0,
-                              directories_within = "") %>%
+                              size = 0) %>%
     as_tibble()
 
-current_directory <- c() # A vector of directory names (filepath)
+# Initialize a vector to track the current directory path
+current_directory <- c()
 
+# Loop through each input line
 for (l in input){
-    # Check if we're changing directories
+
+    # First, check if we're changing directories using substr()
     if (substr(l, 1, 4) == "$ cd"){
 
-        # Either going back one directory or jumping into named directory
+        # We're either going back one directory...
         if (substr(l, 6, 7) == ".."){
-            current_directory <- current_directory[-length(current_directory)]
-        } else {
+            current_directory <- head(current_directory, -1)
+        }
+        # ... or going into a directory that's in the current directory
+        else {
             current_directory <- c(current_directory, substr(l, 6, nchar(l)))
         }
+
+        # Add the current directory path to directory_stats, if it's new
+        path <- paste(current_directory, collapse = "/")
+
+        if (!path %in% directory_stats$name){
+            directory_stats <- directory_stats %>%
+                add_row(name = path,
+                        size = 0)
+        }
     }
 
-    # Check if we're listing directory contents
-    if (substr(l, 1, 1) != "$"){
-        split_line <- unlist(strsplit(l, split=" "))
-        path <- paste(current_directory, collapse=" ")
+    # Other than changing directories, we only need to check for individual files
+    # Files are the only lines that don't start with "c" or "$"
+    if (!substr(l, 1, 1) %in% c("d", "$")){
+        this_size <- l %>%
+            strsplit(split=" ") %>%
+            unlist() %>%
+            head(1) %>%
+            as.numeric()
 
-        if (split_line[1] == "dir"){
-            # If this is a new directory, add it to the directory_stats table
-            if (!paste(path, split_line[2], sep=" ") %in% directory_stats$name){
-                directory_stats <- directory_stats %>%
-                    add_row(name = paste(path, split_line[2], sep=" "),
-                            depth = length(current_directory),
-                            parent = path,
-                            direct_file_names = "",
-                            direct_file_sizes = 0,
-                            directories_within = "")
-            }
+        # Add the file size to every parent directory
+        for (j in 1:length(current_directory)){
+            this_path <- paste(current_directory[1:j], collapse = "/")
 
-            # Add the directory name to the directories_within col for the current directory
             directory_stats <- directory_stats %>%
-                mutate(directories_within = ifelse(name == path,
-                                                  paste(directories_within, paste(path, split_line[2], sep=" "), sep=","),
-                                                  directories_within))
-        }
-
-        # Otherwise this is a file
-        else {
-            # Add the file stats to the current directory's row in directory_stats
-            directory_stats <- directory_stats %>%
-                mutate(direct_file_names = ifelse(name == path,
-                                                  paste(direct_file_names, split_line[2], sep=","),
-                                                  direct_file_names)) %>%
-                mutate(direct_file_sizes = ifelse(name == path,
-                                                  direct_file_sizes + as.numeric(split_line[1]),
-                                                  direct_file_sizes))
-
+                mutate(size = size + ifelse(name == this_path,
+                                            this_size, 0))
         }
     }
 }
 
-# Now we need to figure out the total size of all files contained within each directory
-# We'll start at the max depth, then add the direct file sizes to the parent directories
-directory_stats$total_file_sizes <- directory_stats$direct_file_sizes
-directory_stats <- directory_stats[with(directory_stats, order(-depth)),]
-
-for (i in 1:(nrow(directory_stats) - 1)){
-    this_size <- directory_stats$total_file_sizes[i]
-    this_parent <- directory_stats$parent[i]
-
-    directory_stats <- directory_stats %>%
-        mutate(total_file_sizes = ifelse(name == this_parent,
-                                         total_file_sizes + this_size,
-                                         total_file_sizes))
-}
-
-
+# Now we just need to get the sum of all sizes that are under 100,000
 solution_1 <- directory_stats %>%
-    filter(total_file_sizes <= 100000) %>%
-    select(total_file_sizes) %>%
+    filter(size <= 100000) %>%
+    select(size) %>%
     sum()
 
 solution_1
@@ -106,9 +81,10 @@ solution_1
 # Day 7, Part 2                                                                                      #
 ######################################################################################################
 
+# Here we just need to filter for directories that would free up enough space (>= used space - 4e7)
 solution_2 <- directory_stats %>%
-    filter(total_file_sizes >= max(total_file_sizes) - 40000000) %>%
-    select(total_file_sizes) %>%
+    filter(size >= max(size) - 40000000) %>%
+    select(size) %>%
     min()
 
-solution_1
+solution_2
