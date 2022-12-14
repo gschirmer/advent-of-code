@@ -110,7 +110,7 @@ solution_1 <- monkey_activities %>%
 solution_1
 
 ######################################################################################################
-# Day 11, Part 1                                                                                     #
+# Day 11, Part 2                                                                                     #
 ######################################################################################################
 
 # These numbers are going to blow up real quick. Luckily, all the divisors we're checking are primes.
