@@ -28,15 +28,16 @@ nodes <- tidyr::crossing(R = 1:nrow(input),
     unite("node", R:C) %>%
     pull(node)
 
-# Define a function to return a list of reachable coordinates from current spot
+# Define a function to return a list of reachable spots from current spot (row, column)
 # Taking into account we can only reach spots that are at most one higher than current letter
 fGetReachableSpots <- function(grid, start){
 
     start_row <- start[1]
     start_col <- start[2]
 
-    start_letter <- grid[start_row, start_col]
-    start_letter <- gsub("S", "a", gsub("E", "z", start_letter))
+    start_letter <- grid[start_row, start_col] %>%
+        str_replace("S", "a") %>%
+        str_replace("E", "z")
     start_letter_value <- match(start_letter, letters)
 
     adjacent <- list(c(start_row - 1, start_col),
@@ -47,8 +48,9 @@ fGetReachableSpots <- function(grid, start){
     reachable <- list()
     for (a in adjacent){
         if (all(a >= c(1, 1) & a <= c(nrow(grid), ncol(grid)))){
-            end_letter <- grid[a[1], a[2]]
-            end_letter <- gsub("S", "a", gsub("E", "z", end_letter))
+            end_letter <- grid[a[1], a[2]] %>%
+                str_replace("S", "a") %>%
+                str_replace("E", "z")
 
             if (match(end_letter, letters) - start_letter_value <= 1){
                 reachable[[length(reachable) + 1]] <- a
@@ -79,9 +81,10 @@ g <- graph.adjacency(adjacency)
 start_node <- paste(which(input == "S", arr.ind = TRUE), collapse = "_")
 end_node <- paste(which(input == "E", arr.ind = TRUE), collapse = "_")
 
-# Pull the length of the shortest path from the start node to the end node
-solution_1 <- shortest_paths(g, from=start_node, to=end_node, algorithm="dijkstra")$vpath[[1]] %>%
-    length() - 1
+# Calculate shortest paths from/to each node in the graph
+shortest_paths <- shortest.paths(g, mode="out")
+
+solution_1 <- shortest_paths[start_node, end_node]
 
 solution_1
 
@@ -90,19 +93,14 @@ solution_1
 ######################################################################################################
 
 # We can apply the same approach by looping through all possible starting points
-starting_nodes <- paste(which(input == "a", arr.ind = TRUE)[,1],
+a_nodes <- paste(which(input == "a", arr.ind = TRUE)[,1],
                         which(input == "a", arr.ind = TRUE)[,2],
                         sep = "_")
 
-fewest_steps <- solution_1
-for (i in starting_nodes){
-    print(paste(match(i, starting_nodes), fewest_steps))
-    steps <- shortest_paths(g, from=i, to=end_node, algorithm="dijkstra")$vpath[[1]] %>%
-        length() - 1
+solution_2 <- shortest_paths %>%
+    as_tibble() %>%
+    filter(row.names(shortest_paths) %in% a_nodes) %>%
+    select(all_of(end_node)) %>%
+    min()
 
-    if (steps > 0){
-        fewest_steps <- min(steps, fewest_steps)
-    }
-}
-
-solution_2 <- fewest_steps
+solution_2
