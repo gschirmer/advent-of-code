@@ -92,7 +92,7 @@ solution_1
 # Day 12, Part 2                                                                                     #
 ######################################################################################################
 
-# We can apply the same approach by looping through all possible starting points
+# We can just filter the shortest_paths table to only include "a" starting nodes
 a_nodes <- paste(which(input == "a", arr.ind = TRUE)[,1],
                         which(input == "a", arr.ind = TRUE)[,2],
                         sep = "_")
